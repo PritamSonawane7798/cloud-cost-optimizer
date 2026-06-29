@@ -1,0 +1,22 @@
+# Cloud Cost Optimizer — Rule Engine Configuration
+# Edit thresholds or skip_tags without changing code.
+
+skip_tags:
+  env:
+    - prod
+  do-not-delete:
+    - "*"
+
+detectors:
+  snapshot:
+    age_threshold_days: 90        # snapshots older than this are flagged
+
+  vm:
+    cpu_threshold_pct: 5.0        # 7-day avg CPU below this → idle
+    flag_stopped: true            # also flag stopped/deallocated instances
+
+  load_balancer:
+    request_count_threshold: 0   # 7-day request count at or below this → idle
+
+  nat_gateway:
+    bytes_threshold: 0           # 7-day bytes processed at or below this → unused

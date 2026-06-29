@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# =============================================================================
+# Cloud Cost Optimizer — Remediation Script
+# Generated    : {{ generated_at }}
+# Resources    : {{ total_commands }} finding(s)
+# Est. savings : {{ total_savings_fmt }}/mo
+#
+# REVIEW ALL COMMANDS BEFORE RUNNING.
+#
+# Dry-run (default — prints commands, executes nothing):
+#   bash remediation.sh
+#
+# Execute (irreversible for delete operations):
+#   bash remediation.sh --apply
+# =============================================================================
+set -euo pipefail
+
+# ── Dry-run / apply gate ─────────────────────────────────────────────────────
+DRY_RUN=true
+
+if [[ "${1:-}" == "--apply" ]]; then
+  echo "============================================================"
+  echo "  WARNING: LIVE EXECUTION MODE"
+  echo "  {{ total_commands }} command(s) are about to run."
+  echo "  Estimated savings: {{ total_savings_fmt }}/mo"
+  echo "  Destructive deletes CANNOT be undone."
+  echo "============================================================"
+  read -rp "Type 'yes I understand' to proceed: " _confirm
+  if [[ "$_confirm" != "yes I understand" ]]; then
+    echo "Aborted. No changes made."
+    exit 1
+  fi
+  DRY_RUN=false
+fi
+
+# ── Execution wrapper ────────────────────────────────────────────────────────
+_run() {
+  local cmd="$*"
+  if [[ "$DRY_RUN" == "true" ]]; then
+    printf '[DRY-RUN] %s\n' "$cmd"
+  else
+    printf '[EXECUTE] %s\n' "$cmd"
+    eval "$cmd"
+  fi
+}
+
+{% if reversible_entries %}
+# =============================================================================
+# SECTION 1 — REVERSIBLE OPERATIONS  (Stop / Deallocate)
+# These actions DO NOT delete data and can be undone.
+# =============================================================================
+{% for entry in reversible_entries %}
+
+# [R{{ loop.index }}] {{ entry.finding.resource_id }}{% if entry.finding.resource_name %} | {{ entry.finding.resource_name }}{% endif %}
+
+#   Provider    : {{ entry.finding.provider | upper }}
+#   Region      : {{ entry.finding.region or "unknown" }}
+#   Type        : {{ entry.finding.resource_type.value }}
+#   Category    : {{ entry.finding.waste_category.value }}
+#   Reason      : {{ entry.finding.reason }}
+#   Savings     : ${{ "%.2f" % entry.finding.estimated_monthly_savings }}/mo
+#   Confidence  : {{ entry.finding.confidence.value }}
+{% if entry.rollback_note %}
+#   Rollback    : {{ entry.rollback_note }}
+{% endif %}
+_run {{ entry.command }}
+{% endfor %}
+
+{% endif %}
+{% if destructive_entries %}
+# =============================================================================
+# SECTION 2 — DESTRUCTIVE OPERATIONS
+# WARNING: The commands below DELETE resources permanently.
+#          There is no native undo. Read rollback notes carefully.
+# =============================================================================
+{% for entry in destructive_entries %}
+
+# [D{{ loop.index }}] {{ entry.finding.resource_id }}{% if entry.finding.resource_name %} | {{ entry.finding.resource_name }}{% endif %}
+
+#   Provider    : {{ entry.finding.provider | upper }}
+#   Region      : {{ entry.finding.region or "unknown" }}
+#   Type        : {{ entry.finding.resource_type.value }}
+#   Category    : {{ entry.finding.waste_category.value }}
+#   Reason      : {{ entry.finding.reason }}
+#   Savings     : ${{ "%.2f" % entry.finding.estimated_monthly_savings }}/mo
+#   Confidence  : {{ entry.finding.confidence.value }}
+{% if entry.warning %}
+#   !! WARNING  : {{ entry.warning }}
+{% endif %}
+{% if entry.rollback_note %}
+#   Rollback    : {{ entry.rollback_note }}
+{% endif %}
+_run {{ entry.command }}
+{% endfor %}
+
+{% endif %}
+echo ""
+echo "Done. Estimated monthly savings if all applied: {{ total_savings_fmt }}"
